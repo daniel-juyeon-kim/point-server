@@ -17,7 +17,5 @@ import { databaseConfig, rootConfigModule } from './config/config.module';
       }),
     }),
   ],
-  controllers: [],
-  providers: [],
 })
 export class AppModule {}
