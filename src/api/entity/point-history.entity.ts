@@ -5,7 +5,7 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { User } from './user.entity';
+import { UserEntity } from './user.entity';
 
 enum PointType {
   EARN = 'EARN',
@@ -13,11 +13,11 @@ enum PointType {
 }
 
 @Entity()
-export class PointHistory {
+export class PointHistoryEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'enum', enum: PointType })
+  @Column({ enum: PointType })
   type: PointType;
 
   @Column()
@@ -26,6 +26,6 @@ export class PointHistory {
   @CreateDateColumn()
   createdAt: Date;
 
-  @ManyToOne(() => User, (user) => user.id)
-  user: User;
+  @ManyToOne(() => UserEntity, (user) => user.id)
+  user: UserEntity;
 }

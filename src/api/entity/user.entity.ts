@@ -1,17 +1,19 @@
 import { Column, Entity, OneToMany, PrimaryColumn } from 'typeorm';
-import { PointHistory } from './point-history.entity';
+import { PointHistoryEntity } from './point-history.entity';
 
 @Entity()
-export class User {
+export class UserEntity {
   @PrimaryColumn()
   id: string;
 
   @Column()
   password: string;
 
-  @Column()
+  @Column({ default: 0 })
   point: number;
 
-  @OneToMany(() => PointHistory, (history) => history.user, { nullable: true })
-  pointHistories: PointHistory[];
+  @OneToMany(() => PointHistoryEntity, (history) => history.user, {
+    nullable: true,
+  })
+  pointHistories: PointHistoryEntity[];
 }
