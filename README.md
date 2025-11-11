@@ -47,4 +47,4 @@ npm run start:dev
 
 [http://localhost:3000/api-docs](http://localhost:3000/api-docs)
 
-> 참고: [API, ERD 설계 문서](DESIGN_SUMMARY.md)
+> 참고: [API, ERD 설계 문서](DESIGN_SUMMARY.md), [개선 또는 추가 기능 아이디어 제안](<개선 또는 추가 기능 아이디어 제안.md>)
