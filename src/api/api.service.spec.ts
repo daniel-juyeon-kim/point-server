@@ -1,23 +1,19 @@
-import {
-  ConflictException,
-  InternalServerErrorException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { mock, mockReset } from 'jest-mock-extended';
-import { PasswordHasher } from 'src/domain/password-hasher/password-hasher';
 import { DataSource, EntityManager } from 'typeorm';
-import { UserSession } from '../domain/user-session.interface';
+import { PointType } from '../database/entity/point-history.entity';
+import { PointHistoryRepository } from '../database/repository/point-history.repository';
+import { UserRepository } from '../database/repository/user.repository';
 import { ApiService } from './api.service';
-import { UserDto } from './dto/user.dto';
-import { UserRepository } from './user.repository';
+import { EarnDto } from './dto/earn.dto';
 
 describe('ApiService', () => {
   let service: ApiService;
   const ds = mock<DataSource>();
   const em = mock<EntityManager>();
   const userRepository = mock<UserRepository>();
-  const passwordHasher = mock<PasswordHasher>();
+  const pointHistoryRepository = mock<PointHistoryRepository>();
 
   beforeAll(async () => {
     const module = await Test.createTestingModule({
@@ -25,7 +21,7 @@ describe('ApiService', () => {
         ApiService,
         { provide: DataSource, useValue: ds },
         { provide: UserRepository, useValue: userRepository },
-        { provide: PasswordHasher, useValue: passwordHasher },
+        { provide: PointHistoryRepository, useValue: pointHistoryRepository },
       ],
     }).compile();
 
@@ -42,115 +38,45 @@ describe('ApiService', () => {
     mockReset(ds);
     mockReset(em);
     mockReset(userRepository);
-    mockReset(passwordHasher);
+    mockReset(pointHistoryRepository);
   });
 
-  describe('registerUser', () => {
-    const userDto: UserDto = { id: 'testuser', password: 'password123' };
-    const hashedPassword = 'hashed_password';
+  describe('earnPoints', () => {
+    const userId = 'testuser';
+    const initialPoint = 100;
+    const earnAmount = 500;
+    const earnDto: EarnDto = { amount: earnAmount };
 
-    it('새로운 사용자를 성공적으로 등록합니다', async () => {
-      userRepository.existBy.mockResolvedValue(false);
-      passwordHasher.hashOriginalPassword.mockResolvedValue(hashedPassword);
-      userRepository.insert.mockResolvedValue(undefined);
+    it('사용자 포인트를 성공적으로 적립하고 히스토리를 기록해야 한다', async () => {
+      userRepository.findPointById.mockResolvedValue(initialPoint);
+      userRepository.updatePointById.mockResolvedValue(undefined);
+      pointHistoryRepository.insert.mockResolvedValue(undefined);
 
-      await service.registerUser(userDto);
+      const result = await service.earnPoints(userId, earnDto);
 
-      expect(ds.transaction).toHaveBeenCalledTimes(1);
-      expect(userRepository.existBy).toHaveBeenCalledWith(em, userDto.id);
-      expect(passwordHasher.hashOriginalPassword).toHaveBeenCalledWith(
-        userDto.password,
-      );
-      expect(userRepository.insert).toHaveBeenCalledWith(em, {
-        id: userDto.id,
-        password: hashedPassword,
-      });
-    });
-
-    it('이미 존재하는 ID일 경우 ConflictException을 던집니다', async () => {
-      userRepository.existBy.mockResolvedValue(true);
-
-      await expect(service.registerUser(userDto)).rejects.toThrow(
-        ConflictException,
-      );
-      expect(passwordHasher.hashOriginalPassword).not.toHaveBeenCalled();
-      expect(userRepository.insert).not.toHaveBeenCalled();
-    });
-
-    it('데이터베이스 오류 발생 시 InternalServerErrorException을 던집니다', async () => {
-      userRepository.existBy.mockResolvedValue(false);
-      passwordHasher.hashOriginalPassword.mockResolvedValue(hashedPassword);
-      userRepository.insert.mockRejectedValue(new Error('DB Error'));
-
-      await expect(service.registerUser(userDto)).rejects.toThrow(
-        InternalServerErrorException,
-      );
-    });
-  });
-
-  describe('loginUser', () => {
-    const userDto: UserDto = { id: 'testuser', password: 'password123' };
-    const hashedPassword = 'hashed_password';
-    let session: UserSession;
-
-    beforeEach(() => {
-      session = {} as UserSession;
-    });
-
-    it('로그인에 성공하고 세션에 사용자 정보를 저장합니다', async () => {
-      userRepository.existBy.mockResolvedValue(true);
-      userRepository.findPasswordById.mockResolvedValue(hashedPassword);
-      passwordHasher.compare.mockResolvedValue(true);
-
-      await service.loginUser(userDto, session);
-
-      expect(ds.transaction).toHaveBeenCalledTimes(1);
-      expect(userRepository.existBy).toHaveBeenCalledWith(em, userDto.id);
-      expect(userRepository.findPasswordById).toHaveBeenCalledWith(
+      expect(result).toBe(initialPoint + earnAmount);
+      expect(userRepository.findPointById).toHaveBeenCalledWith(em, userId);
+      expect(userRepository.updatePointById).toHaveBeenCalledWith(
         em,
-        userDto.id,
+        userId,
+        initialPoint + earnAmount,
       );
-      expect(passwordHasher.compare).toHaveBeenCalledWith(
-        userDto.password,
-        hashedPassword,
+      expect(pointHistoryRepository.insert).toHaveBeenCalledWith(
+        em,
+        userId,
+        earnAmount,
+        PointType.EARN,
       );
-      // 세션 수정 확인
-      expect(session.userId).toBe(userDto.id);
-      expect(session.loginTime).toBeDefined();
     });
 
-    it('존재하지 않는 사용자 ID일 경우 UnauthorizedException을 던집니다', async () => {
-      userRepository.existBy.mockResolvedValue(false);
+    it('존재하지 않는 사용자의 포인트를 적립하려 하면 NotFoundException을 던져야 한다', async () => {
+      userRepository.findPointById.mockResolvedValue(undefined);
 
-      await expect(service.loginUser(userDto, session)).rejects.toThrow(
-        UnauthorizedException,
+      await expect(service.earnPoints('nonexistent', earnDto)).rejects.toThrow(
+        NotFoundException,
       );
-
-      expect(userRepository.findPasswordById).not.toHaveBeenCalled();
-      expect(passwordHasher.compare).not.toHaveBeenCalled();
-      expect(session.userId).toBeUndefined();
-    });
-
-    it('비밀번호가 일치하지 않을 경우 UnauthorizedException을 던집니다', async () => {
-      userRepository.existBy.mockResolvedValue(true);
-      userRepository.findPasswordById.mockResolvedValue(hashedPassword);
-      passwordHasher.compare.mockResolvedValue(false);
-
-      await expect(service.loginUser(userDto, session)).rejects.toThrow(
-        UnauthorizedException,
-      );
-
-      expect(session.userId).toBeUndefined();
-    });
-
-    it('데이터베이스 오류 발생 시 InternalServerErrorException을 던집니다', async () => {
-      userRepository.existBy.mockRejectedValue(new Error('DB Error'));
-
-      await expect(service.loginUser(userDto, session)).rejects.toThrow(
-        InternalServerErrorException,
-      );
-
-      expect(session.userId).toBeUndefined();
+      expect(userRepository.updatePointById).not.toHaveBeenCalled();
+      expect(pointHistoryRepository.insert).not.toHaveBeenCalled();
     });
   });
 });

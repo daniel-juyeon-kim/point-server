@@ -3,6 +3,7 @@ import { ConfigModule, ConfigType } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ApiModule } from './api/api.module';
 import { databaseConfig, rootConfigModule } from './config/config.module';
+import { RepositoryModule } from './database/repository.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { databaseConfig, rootConfigModule } from './config/config.module';
         entities: [__dirname + '/api/**/*.entity.{ts,js}'],
       }),
     }),
+    RepositoryModule,
   ],
 })
 export class AppModule {}

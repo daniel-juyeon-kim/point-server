@@ -1,103 +1,39 @@
-import {
-  ConflictException,
-  Injectable,
-  InternalServerErrorException,
-  UnauthorizedException,
-} from '@nestjs/common';
-import { PasswordHasher } from 'src/domain/password-hasher/password-hasher';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { UserSession } from '../domain/user-session.interface';
-import { UserDto } from './dto/user.dto';
-import { UserRepository } from './user.repository';
+import { PointType } from '../database/entity/point-history.entity';
+import { PointHistoryRepository } from '../database/repository/point-history.repository';
+import { UserRepository } from '../database/repository/user.repository';
+import { EarnDto } from './dto/earn.dto';
 
 @Injectable()
 export class ApiService {
-  private readonly INVALID_CREDENTIALS_MESSAGE =
-    '아이디 또는 비밀번호가 올바르지 않습니다.';
-
   constructor(
     private readonly ds: DataSource,
     private readonly userRepository: UserRepository,
-    private readonly passwordHasher: PasswordHasher,
+    private readonly pointHistoryRepository: PointHistoryRepository,
   ) {}
 
-  async registerUser({ id, password }: UserDto) {
-    try {
-      await this.ds.transaction(async (em) => {
-        const isExistUser = await this.userRepository.existBy(em, id);
+  async earnPoints(userId: string, { amount }: EarnDto) {
+    return await this.ds.transaction(async (em) => {
+      const point = await this.userRepository.findPointById(em, userId);
 
-        this.validateExistUser(isExistUser, id);
-
-        const hashedPassword =
-          await this.passwordHasher.hashOriginalPassword(password);
-
-        await this.userRepository.insert(em, { id, password: hashedPassword });
-      });
-    } catch (error) {
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      console.log(error);
-      throw new InternalServerErrorException();
-    }
-  }
-
-  private validateExistUser(isExistUser: boolean, id: string) {
-    if (isExistUser) {
-      const errorMessage = `${id}에 해당하는 사용자가 이미 존재합니다.`;
-
-      throw new ConflictException(errorMessage);
-    }
-  }
-
-  async loginUser({ id, password }: UserDto, session: UserSession) {
-    try {
-      await this.ds.transaction(async (em) => {
-        const isExistUser = await this.userRepository.existBy(em, id);
-
-        this.validateNotExistUser(isExistUser);
-
-        const hashedPassword = await this.userRepository.findPasswordById(
-          em,
-          id,
+      if (point === undefined) {
+        throw new NotFoundException(
+          `ID가 '${userId}'인 사용자를 찾을 수 없습니다.`,
         );
-
-        await this.validatePassword(password, hashedPassword);
-      });
-
-      this.setUserIdAtSession(session, id);
-    } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
       }
-      throw new InternalServerErrorException();
-    }
-  }
 
-  private setUserIdAtSession(session: UserSession, id: string) {
-    session.userId = id;
-    session.loginTime = new Date().toISOString();
-  }
+      const currentPoint = point + amount;
 
-  private validateNotExistUser(isExistUser: boolean) {
-    if (!isExistUser) {
-      throw new UnauthorizedException(this.INVALID_CREDENTIALS_MESSAGE);
-    }
-  }
+      await this.userRepository.updatePointById(em, userId, currentPoint);
+      await this.pointHistoryRepository.insert(
+        em,
+        userId,
+        amount,
+        PointType.EARN,
+      );
 
-  private async validatePassword(
-    originalPassword: string,
-    hashedPassword: string,
-  ) {
-    const isValidUser = await this.passwordHasher.compare(
-      originalPassword,
-      hashedPassword,
-    );
-
-    if (isValidUser) {
-      return;
-    }
-
-    throw new UnauthorizedException(this.INVALID_CREDENTIALS_MESSAGE);
+      return currentPoint;
+    });
   }
 }

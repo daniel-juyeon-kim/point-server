@@ -1,18 +1,16 @@
 import { ExecutionContext } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { SessionData, Store } from 'express-session';
-import { MockProxy, mock } from 'jest-mock-extended';
+import { DeepMockProxy, mockDeep } from 'jest-mock-extended';
+import { UserRepository } from 'src/database/repository/user.repository';
+import { PartialUserSession } from 'src/domain/user-session.interface';
+import { DataSource } from 'typeorm';
 import { UserSessionGuard } from './user-session.guard';
 
-const createMockExecutionContext = (
-  sessionStore: MockProxy<Store>,
-  sessionId: string,
-) => {
+const createMockExecutionContext = (session: PartialUserSession) => {
   return {
     switchToHttp: () => ({
       getRequest: () => ({
-        session: { id: sessionId },
-        sessionStore: sessionStore,
+        session,
       }),
     }),
   } as ExecutionContext;
@@ -20,48 +18,58 @@ const createMockExecutionContext = (
 
 describe('UserSessionGuard', () => {
   let guard: UserSessionGuard;
-  let mockSessionStore: MockProxy<Store>;
-  const sessionId = 'test-session-id';
+  let mockUserRepository: DeepMockProxy<UserRepository>;
+  let mockDataSource: DeepMockProxy<DataSource>;
 
   beforeEach(async () => {
     const module = await Test.createTestingModule({
-      providers: [UserSessionGuard],
+      providers: [
+        UserSessionGuard,
+        { provide: UserRepository, useValue: mockDeep<UserRepository>() },
+        { provide: DataSource, useValue: mockDeep<DataSource>() },
+      ],
     }).compile();
 
     guard = module.get(UserSessionGuard);
-    mockSessionStore = mock<Store>();
+    mockUserRepository = module.get(UserRepository);
+    mockDataSource = module.get(DataSource);
   });
 
-  it('세션이 존재할 경우 true를 반환해야 함', async () => {
-    mockSessionStore.get.mockImplementation((sid, callback) => {
-      callback(null, { cookie: {} } as SessionData);
-    });
-    const context = createMockExecutionContext(mockSessionStore, sessionId);
+  it('세션에 userId가 있고 DB에 사용자가 존재하면 true를 반환해야 함', async () => {
+    const session = { userId: 'test-user' } as PartialUserSession;
+    const context = createMockExecutionContext(session);
+    mockUserRepository.existBy.mockResolvedValue(true);
 
     const result = await guard.canActivate(context);
 
     expect(result).toBe(true);
+    expect(mockUserRepository.existBy).toHaveBeenCalledWith(
+      mockDataSource.manager,
+      'test-user',
+    );
   });
 
-  it('세션이 존재하지 않을 경우 false를 반환해야 함', async () => {
-    mockSessionStore.get.mockImplementation((sid, callback) => {
-      callback(null, null);
-    });
-    const context = createMockExecutionContext(mockSessionStore, sessionId);
+  it('세션에 userId가 없으면 false를 반환해야 함', async () => {
+    const session = {} as PartialUserSession;
+    const context = createMockExecutionContext(session);
 
     const result = await guard.canActivate(context);
 
     expect(result).toBe(false);
+    expect(mockUserRepository.existBy).not.toHaveBeenCalled();
   });
 
-  it('세션 저장소에서 에러가 발생할 경우 false를 반환해야 함', async () => {
-    mockSessionStore.get.mockImplementation((sid, callback) => {
-      callback(new Error('Store error'), null);
-    });
-    const context = createMockExecutionContext(mockSessionStore, sessionId);
+  it('세션에 userId가 있지만 DB에 사용자가 없으면 false를 반환해야 함', async () => {
+    const session = { userId: 'non-existent-user' } as PartialUserSession;
+    const context = createMockExecutionContext(session);
+    mockUserRepository.existBy.mockResolvedValue(false);
 
     const result = await guard.canActivate(context);
 
     expect(result).toBe(false);
+    expect(mockUserRepository.existBy).toHaveBeenCalledWith(
+      mockDataSource.manager,
+      'non-existent-user',
+    );
   });
 });

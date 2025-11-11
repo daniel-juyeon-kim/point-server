@@ -1,19 +1,16 @@
-import { Body, Controller, Post, Session } from '@nestjs/common';
+import { Body, Controller, Post, Session, UseGuards } from '@nestjs/common';
+import { UserSessionGuard } from 'src/user-session/user-session.guard';
 import type { UserSession } from '../domain/user-session.interface';
 import { ApiService } from './api.service';
-import { UserDto } from './dto/user.dto';
+import { EarnDto } from './dto/earn.dto';
 
 @Controller('api')
 export class ApiController {
   constructor(private readonly apiService: ApiService) {}
 
-  @Post('user')
-  async createUser(@Body() user: UserDto) {
-    await this.apiService.registerUser(user);
-  }
-
-  @Post('user/login')
-  async login(@Body() user: UserDto, @Session() session: UserSession) {
-    await this.apiService.loginUser(user, session);
+  @Post('earn')
+  @UseGuards(UserSessionGuard)
+  earn(@Session() { userId }: UserSession, @Body() earnDto: EarnDto) {
+    return this.apiService.earnPoints(userId, earnDto);
   }
 }
