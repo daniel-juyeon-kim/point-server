@@ -60,4 +60,31 @@ describe('ApiController', () => {
       expect(service.earnPoints).toHaveBeenCalledWith(userId, earnDto);
     });
   });
+
+  describe('getBalance', () => {
+    const userId = 'testuser';
+    const balance = 1000;
+    const session = { userId } as UserSession;
+
+    it('ApiService의 getBalance를 올바른 userId와 함께 호출하고 결과를 반환합니다', async () => {
+      service.getBalance.mockResolvedValue(balance);
+
+      const result = await controller.getBalance(session);
+
+      expect(service.getBalance).toHaveBeenCalledWith(userId);
+      expect(result).toBe(balance);
+    });
+
+    it('서비스에서 NotFoundException이 발생하면 그대로 던집니다', async () => {
+      const error = new NotFoundException(
+        `ID가 '${userId}'인 사용자를 찾을 수 없습니다.`,
+      );
+      service.getBalance.mockRejectedValue(error);
+
+      await expect(controller.getBalance(session)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(service.getBalance).toHaveBeenCalledWith(userId);
+    });
+  });
 });

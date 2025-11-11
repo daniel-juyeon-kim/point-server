@@ -79,4 +79,30 @@ describe('ApiService', () => {
       expect(pointHistoryRepository.insert).not.toHaveBeenCalled();
     });
   });
+
+  describe('getBalance', () => {
+    const userId = 'testuser';
+    const balance = 1000;
+
+    it('사용자의 잔액을 성공적으로 조회해야 한다', async () => {
+      userRepository.findPointById.mockResolvedValue(balance);
+
+      const result = await service.getBalance(userId);
+
+      expect(result).toBe(balance);
+      expect(userRepository.findPointById).toHaveBeenCalledWith(em, userId);
+    });
+
+    it('존재하지 않는 사용자의 잔액을 조회하려 하면 NotFoundException을 던져야 한다', async () => {
+      userRepository.findPointById.mockResolvedValue(undefined);
+
+      await expect(service.getBalance('nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(userRepository.findPointById).toHaveBeenCalledWith(
+        em,
+        'nonexistent',
+      );
+    });
+  });
 });

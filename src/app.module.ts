@@ -14,7 +14,7 @@ import { RepositoryModule } from './database/repository.module';
       inject: [databaseConfig.KEY],
       useFactory: (dbConfig: ConfigType<typeof databaseConfig>) => ({
         ...dbConfig,
-        entities: [__dirname + '/api/**/*.entity.{ts,js}'],
+        entities: [__dirname + '/**/*.entity.{ts,js}'],
       }),
     }),
     RepositoryModule,

@@ -36,4 +36,18 @@ export class ApiService {
       return currentPoint;
     });
   }
+
+  async getBalance(userId: string): Promise<number> {
+    return await this.ds.transaction(async (em) => {
+      const point = await this.userRepository.findPointById(em, userId);
+
+      if (point === undefined) {
+        throw new NotFoundException(
+          `ID가 '${userId}'인 사용자를 찾을 수 없습니다.`,
+        );
+      }
+
+      return point;
+    });
+  }
 }
