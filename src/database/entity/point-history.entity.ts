@@ -7,7 +7,7 @@ import {
 } from 'typeorm';
 import { UserEntity } from './user.entity';
 
-enum PointType {
+export enum PointType {
   EARN = 'EARN',
   SPEND = 'SPEND',
 }

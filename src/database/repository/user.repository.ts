@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
-import { UserDto } from './dto/user.dto';
-import { UserEntity } from './entity/user.entity';
+import { UserDto } from '../../api/user/dto/user.dto';
+import { UserEntity } from '../entity/user.entity';
 
 @Injectable()
 export class UserRepository {
@@ -30,5 +30,18 @@ export class UserRepository {
     }
 
     return user.password;
+  }
+
+  async findPointById(em: EntityManager, id: string) {
+    const user = await em.findOne(this.entity, {
+      select: { point: true },
+      where: { id },
+    });
+
+    return user?.point;
+  }
+
+  async updatePointById(em: EntityManager, id: string, point: number) {
+    await em.update(this.entity, id, { point });
   }
 }

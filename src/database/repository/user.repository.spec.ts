@@ -2,9 +2,9 @@ import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
-import { UserDto } from './dto/user.dto';
-import { PointHistoryEntity } from './entity/point-history.entity';
-import { UserEntity } from './entity/user.entity';
+import { UserDto } from '../../api/user/dto/user.dto';
+import { PointHistoryEntity } from '../entity/point-history.entity';
+import { UserEntity } from '../entity/user.entity';
 import { UserRepository } from './user.repository';
 
 describe('UserRepository', () => {
@@ -98,6 +98,50 @@ describe('UserRepository', () => {
       await expect(
         userRepository.findPasswordById(entityManager, 'nonexistent'),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('findPointById', () => {
+    it('사용자가 존재하면 포인트를 반환합니다', async () => {
+      const testUser = { id: 'testuser', password: 'password', point: 500 };
+      const user = entityManager.create(UserEntity, testUser);
+      await entityManager.save(user);
+
+      const point = await userRepository.findPointById(
+        entityManager,
+        testUser.id,
+      );
+
+      expect(point).toBe(testUser.point);
+    });
+
+    it('사용자가 존재하지 않으면 undefined를 반환합니다', async () => {
+      const point = await userRepository.findPointById(
+        entityManager,
+        'nonexistent',
+      );
+
+      expect(point).toBeUndefined();
+    });
+  });
+
+  describe('updatePointById', () => {
+    it('사용자의 포인트를 성공적으로 업데이트합니다', async () => {
+      const testUser = { id: 'testuser', password: 'password', point: 500 };
+      const user = entityManager.create(UserEntity, testUser);
+      await entityManager.save(user);
+
+      const newPointValue = 1500;
+      await userRepository.updatePointById(
+        entityManager,
+        testUser.id,
+        newPointValue,
+      );
+
+      const updatedUser = await entityManager.findOneBy(UserEntity, {
+        id: testUser.id,
+      });
+      expect(updatedUser?.point).toBe(newPointValue);
     });
   });
 });
