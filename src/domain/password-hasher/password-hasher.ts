@@ -8,4 +8,8 @@ export class PasswordHasher {
   hashOriginalPassword(originalPassword: string) {
     return bcrypt.hash(originalPassword, this.rounds);
   }
+
+  compare(originalPassword: string, hashedPassword: string) {
+    return bcrypt.compare(originalPassword, hashedPassword);
+  }
 }

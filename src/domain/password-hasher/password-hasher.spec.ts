@@ -1,10 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import bcrypt from 'bcrypt';
 import { PasswordHasher } from './password-hasher';
 
-jest.mock('bcrypt');
-
-describe('PasswordHasher', () => {
+describe('PasswordHasher (Real)', () => {
   let passwordHasher: PasswordHasher;
 
   beforeEach(async () => {
@@ -13,27 +10,42 @@ describe('PasswordHasher', () => {
     }).compile();
 
     passwordHasher = module.get<PasswordHasher>(PasswordHasher);
-    jest.clearAllMocks();
-  });
-
-  afterEach(() => {
-    bcrypt.hash = jest.fn();
   });
 
   describe('hashOriginalPassword', () => {
-    it('bcrypt.hash를 올바른 비밀번호와 라운드 값으로 호출하고 결과를 반환합니다', async () => {
+    it('원본 비밀번호를 해시화된 문자열로 변환합니다', async () => {
       const originalPassword = 'my-plain-password';
-      const rounds = 12;
-      const expectedHashedPassword = 'a-mocked-hash-string';
 
-      (bcrypt.hash as jest.Mock).mockResolvedValue(expectedHashedPassword);
-
-      const result =
+      const hashedPassword =
         await passwordHasher.hashOriginalPassword(originalPassword);
 
-      expect(bcrypt.hash).toHaveBeenCalledTimes(1);
-      expect(bcrypt.hash).toHaveBeenCalledWith(originalPassword, rounds);
-      expect(result).toBe(expectedHashedPassword);
+      // 생성된 해시가 유효한지 확인
+      await expect(
+        passwordHasher.compare(originalPassword, hashedPassword),
+      ).resolves.toBe(true);
+    });
+  });
+
+  describe('compare', () => {
+    const originalPassword = 'my-plain-password';
+    const wrongPassword = 'another-password';
+    let hashedPassword: string;
+
+    beforeEach(async () => {
+      hashedPassword =
+        await passwordHasher.hashOriginalPassword(originalPassword);
+    });
+
+    it('올바른 비밀번호와 비교 시 true를 반환합니다', async () => {
+      await expect(
+        passwordHasher.compare(originalPassword, hashedPassword),
+      ).resolves.toBe(true);
+    });
+
+    it('잘못된 비밀번호와 비교 시 false를 반환합니다', async () => {
+      await expect(
+        passwordHasher.compare(wrongPassword, hashedPassword),
+      ).resolves.toBe(false);
     });
   });
 });
