@@ -3,4 +3,5 @@ interface User {
   loginTime: string;
 }
 
-export type UserSession = Express.Request['session'] & Partial<User>;
+export type PartialUserSession = Express.Request['session'] & Partial<User>;
+export type UserSession = Express.Request['session'] & User;
