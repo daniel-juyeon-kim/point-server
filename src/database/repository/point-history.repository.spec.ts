@@ -32,8 +32,8 @@ describe('PointHistoryRepository', () => {
   });
 
   beforeEach(async () => {
-    await em.query('DELETE FROM point_history_entity');
-    await em.query('DELETE FROM user_entity');
+    await em.clear(PointHistoryEntity);
+    await em.clear(UserEntity);
 
     const user = em.create(UserEntity, TEST_USER);
     await em.save(user);
@@ -59,6 +59,112 @@ describe('PointHistoryRepository', () => {
       expect(history[0].amount).toBe(amount);
       expect(history[0].type).toBe(type);
       expect(history[0].user.id).toBe(TEST_USER.id);
+    });
+  });
+
+  describe('findHistoryByUserId', () => {
+    it('포인트 내역이 없으면 빈 배열을 반환해야 한다', async () => {
+      const history = await pointHistoryRepository.findHistoryByUserId(
+        em,
+        TEST_USER.id,
+      );
+      expect(history).toEqual([]);
+    });
+
+    it('사용자의 포인트 내역을 최신순으로 조회해야 한다 (커서 없음)', async () => {
+      const now = new Date();
+      const history1 = em.create(PointHistoryEntity, {
+        user: TEST_USER,
+        amount: 100,
+        type: PointType.EARN,
+        createdAt: new Date(now.getTime() - 2000),
+      });
+      const history2 = em.create(PointHistoryEntity, {
+        user: TEST_USER,
+        amount: 200,
+        type: PointType.SPEND,
+        createdAt: new Date(now.getTime() - 1000),
+      });
+      const history3 = em.create(PointHistoryEntity, {
+        user: TEST_USER,
+        amount: 300,
+        type: PointType.EARN,
+        createdAt: now,
+      });
+      await em.save([history1, history2, history3]);
+
+      const history = await pointHistoryRepository.findHistoryByUserId(
+        em,
+        TEST_USER.id,
+      );
+
+      expect(history).toHaveLength(3);
+      expect(history[0].amount).toBe(history3.amount);
+      expect(history[1].amount).toBe(history2.amount);
+      expect(history[2].amount).toBe(history1.amount);
+    });
+
+    it('historyId 커서를 사용하여 해당 ID 이전의 내역을 최신순으로 조회해야 한다', async () => {
+      const now = new Date();
+      const history1 = em.create(PointHistoryEntity, {
+        user: TEST_USER,
+        amount: 100,
+        type: PointType.EARN,
+        createdAt: new Date(now.getTime() - 3000),
+      });
+      const history2 = em.create(PointHistoryEntity, {
+        user: TEST_USER,
+        amount: 200,
+        type: PointType.SPEND,
+        createdAt: new Date(now.getTime() - 2000),
+      });
+      const history3 = em.create(PointHistoryEntity, {
+        user: TEST_USER,
+        amount: 300,
+        type: PointType.EARN,
+        createdAt: new Date(now.getTime() - 1000),
+      });
+      const history4 = em.create(PointHistoryEntity, {
+        user: TEST_USER,
+        amount: 400,
+        type: PointType.SPEND,
+        createdAt: now,
+      });
+      await em.save([history1, history2, history3, history4]);
+
+      const history = await pointHistoryRepository.findHistoryByUserId(
+        em,
+        TEST_USER.id,
+        // 다음 레코드의 아이디
+        history3.id,
+      );
+
+      expect(history).toHaveLength(2);
+      expect(history[0].amount).toBe(history2.amount);
+      expect(history[1].amount).toBe(history1.amount);
+    });
+
+    it('limit을 사용하여 조회 개수를 제한해야 한다', async () => {
+      const now = new Date();
+
+      for (let i = 0; i < 15; i++) {
+        const history = em.create(PointHistoryEntity, {
+          user: TEST_USER,
+          amount: 10 + i,
+          type: PointType.EARN,
+          createdAt: new Date(now.getTime() - i * 1000),
+        });
+        await em.save(history);
+      }
+
+      const history = await pointHistoryRepository.findHistoryByUserId(
+        em,
+        TEST_USER.id,
+        undefined,
+        5,
+      );
+
+      expect(history).toHaveLength(5);
     });
   });
 });

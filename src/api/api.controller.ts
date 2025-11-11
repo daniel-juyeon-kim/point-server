@@ -2,7 +2,9 @@ import {
   Body,
   Controller,
   Get,
+  ParseIntPipe,
   Post,
+  Query,
   Session,
   UseGuards,
 } from '@nestjs/common';
@@ -24,5 +26,14 @@ export class ApiController {
   @Get('balance')
   getBalance(@Session() { userId }: UserSession) {
     return this.apiService.getBalance(userId);
+  }
+
+  @Get('history')
+  getHistory(
+    @Session() { userId }: UserSession,
+    @Query('historyId', new ParseIntPipe({ optional: true }))
+    historyId?: number,
+  ) {
+    return this.apiService.getHistory(userId, historyId);
   }
 }

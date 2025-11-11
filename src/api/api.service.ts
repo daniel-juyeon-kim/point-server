@@ -50,4 +50,13 @@ export class ApiService {
       return point;
     });
   }
+
+  async getHistory(userId: string, historyId?: number) {
+    const history = await this.pointHistoryRepository.findHistoryByUserId(
+      this.ds.createEntityManager(),
+      userId,
+      historyId,
+    );
+    return history;
+  }
 }

@@ -2,7 +2,10 @@ import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { mock, mockReset } from 'jest-mock-extended';
 import { DataSource, EntityManager } from 'typeorm';
-import { PointType } from '../database/entity/point-history.entity';
+import {
+  PointHistoryEntity,
+  PointType,
+} from '../database/entity/point-history.entity';
 import { PointHistoryRepository } from '../database/repository/point-history.repository';
 import { UserRepository } from '../database/repository/user.repository';
 import { ApiService } from './api.service';
@@ -103,6 +106,37 @@ describe('ApiService', () => {
         em,
         'nonexistent',
       );
+    });
+  });
+
+  describe('getHistory', () => {
+    const userId = 'testuser';
+    const historyData = [
+      { id: 1, amount: 100, type: 'EARN', createdAt: new Date() },
+    ] as PointHistoryEntity[];
+
+    it('사용자의 포인트 내역을 성공적으로 조회해야 한다 (커서 없음)', async () => {
+      pointHistoryRepository.findHistoryByUserId.mockResolvedValue(historyData);
+
+      const result = await service.getHistory(userId, undefined);
+
+      expect(result).toStrictEqual(historyData);
+    });
+
+    it('사용자의 포인트 내역을 성공적으로 조회해야 한다 (커서 있음)', async () => {
+      pointHistoryRepository.findHistoryByUserId.mockResolvedValue(historyData);
+      const pointHistoryId = 5;
+      const result = await service.getHistory(userId, pointHistoryId);
+
+      expect(result).toBe(historyData);
+    });
+
+    it('포인트 내역이 없으면 빈 배열을 반환해야 한다', async () => {
+      pointHistoryRepository.findHistoryByUserId.mockResolvedValue([]);
+
+      const result = await service.getHistory(userId, undefined);
+
+      expect(result).toEqual([]);
     });
   });
 });

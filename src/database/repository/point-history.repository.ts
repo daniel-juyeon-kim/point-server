@@ -18,4 +18,25 @@ export class PointHistoryRepository {
       type,
     });
   }
+
+  async findHistoryByUserId(
+    em: EntityManager,
+    userId: string,
+    historyId?: number,
+    limit = 10,
+  ): Promise<PointHistoryEntity[]> {
+    const queryBuilder = em
+      .getRepository(this.entity)
+      .createQueryBuilder('history')
+      .where('history.userId = :userId', { userId })
+      .orderBy('history.createdAt', 'DESC')
+      .addOrderBy('history.id', 'DESC')
+      .take(limit);
+
+    if (historyId) {
+      queryBuilder.andWhere('history.id < :historyId', { historyId });
+    }
+
+    return queryBuilder.getMany();
+  }
 }

@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { mock, mockClear } from 'jest-mock-extended';
+import { PointHistoryEntity } from 'src/database/entity/point-history.entity';
 import { DataSource } from 'typeorm';
 import { UserRepository } from '../database/repository/user.repository';
 import { UserSession } from '../domain/user-session.interface';
@@ -85,6 +86,23 @@ describe('ApiController', () => {
         NotFoundException,
       );
       expect(service.getBalance).toHaveBeenCalledWith(userId);
+    });
+  });
+
+  describe('getHistory', () => {
+    const userId = 'testuser';
+    const historyData = [
+      { id: 1, amount: 100, type: 'EARN' },
+    ] as PointHistoryEntity[];
+    const session = { userId } as UserSession;
+
+    it('ApiService의 getHistory를 올바른 userId와 함께 호출하고 결과를 반환합니다 (커서 없음)', async () => {
+      service.getHistory.mockResolvedValue(historyData);
+
+      const result = await controller.getHistory(session, undefined);
+
+      expect(service.getHistory).toHaveBeenCalledWith(userId, undefined);
+      expect(result).toBe(historyData);
     });
   });
 });
