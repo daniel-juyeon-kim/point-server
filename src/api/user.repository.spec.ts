@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
@@ -76,6 +77,27 @@ describe('UserRepository', () => {
       await expect(
         userRepository.insert(entityManager, existUserDto),
       ).rejects.toThrow();
+    });
+  });
+
+  describe('findPasswordById', () => {
+    it('사용자가 존재하면 비밀번호를 반환합니다', async () => {
+      const testUser: UserDto = { id: 'testuser', password: 'password' };
+      const user = entityManager.create(UserEntity, testUser);
+      await entityManager.save(user);
+
+      const password = await userRepository.findPasswordById(
+        entityManager,
+        testUser.id,
+      );
+
+      expect(user.password).toEqual(password);
+    });
+
+    it('사용자가 존재하지 않으면 NotFoundException을 던집니다', async () => {
+      await expect(
+        userRepository.findPasswordById(entityManager, 'nonexistent'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

@@ -17,7 +17,7 @@ export class PointHistoryEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ enum: PointType })
+  @Column({ type: 'simple-enum', enum: PointType })
   type: PointType;
 
   @Column()

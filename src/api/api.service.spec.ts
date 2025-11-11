@@ -1,11 +1,13 @@
 import {
   ConflictException,
   InternalServerErrorException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { mock, mockReset } from 'jest-mock-extended';
+import { PasswordHasher } from 'src/domain/password-hasher/password-hasher';
 import { DataSource, EntityManager } from 'typeorm';
-import { PasswordHasher } from '../../src/domain/password-hasher/password-hasher';
+import { UserSession } from '../domain/user-session.interface';
 import { ApiService } from './api.service';
 import { UserDto } from './dto/user.dto';
 import { UserRepository } from './user.repository';
@@ -83,6 +85,72 @@ describe('ApiService', () => {
       await expect(service.registerUser(userDto)).rejects.toThrow(
         InternalServerErrorException,
       );
+    });
+  });
+
+  describe('loginUser', () => {
+    const userDto: UserDto = { id: 'testuser', password: 'password123' };
+    const hashedPassword = 'hashed_password';
+    let session: UserSession;
+
+    beforeEach(() => {
+      session = {} as UserSession;
+    });
+
+    it('로그인에 성공하고 세션에 사용자 정보를 저장합니다', async () => {
+      userRepository.existBy.mockResolvedValue(true);
+      userRepository.findPasswordById.mockResolvedValue(hashedPassword);
+      passwordHasher.compare.mockResolvedValue(true);
+
+      await service.loginUser(userDto, session);
+
+      expect(ds.transaction).toHaveBeenCalledTimes(1);
+      expect(userRepository.existBy).toHaveBeenCalledWith(em, userDto.id);
+      expect(userRepository.findPasswordById).toHaveBeenCalledWith(
+        em,
+        userDto.id,
+      );
+      expect(passwordHasher.compare).toHaveBeenCalledWith(
+        userDto.password,
+        hashedPassword,
+      );
+      // 세션 수정 확인
+      expect(session.userId).toBe(userDto.id);
+      expect(session.loginTime).toBeDefined();
+    });
+
+    it('존재하지 않는 사용자 ID일 경우 UnauthorizedException을 던집니다', async () => {
+      userRepository.existBy.mockResolvedValue(false);
+
+      await expect(service.loginUser(userDto, session)).rejects.toThrow(
+        UnauthorizedException,
+      );
+
+      expect(userRepository.findPasswordById).not.toHaveBeenCalled();
+      expect(passwordHasher.compare).not.toHaveBeenCalled();
+      expect(session.userId).toBeUndefined();
+    });
+
+    it('비밀번호가 일치하지 않을 경우 UnauthorizedException을 던집니다', async () => {
+      userRepository.existBy.mockResolvedValue(true);
+      userRepository.findPasswordById.mockResolvedValue(hashedPassword);
+      passwordHasher.compare.mockResolvedValue(false);
+
+      await expect(service.loginUser(userDto, session)).rejects.toThrow(
+        UnauthorizedException,
+      );
+
+      expect(session.userId).toBeUndefined();
+    });
+
+    it('데이터베이스 오류 발생 시 InternalServerErrorException을 던집니다', async () => {
+      userRepository.existBy.mockRejectedValue(new Error('DB Error'));
+
+      await expect(service.loginUser(userDto, session)).rejects.toThrow(
+        InternalServerErrorException,
+      );
+
+      expect(session.userId).toBeUndefined();
     });
   });
 });
