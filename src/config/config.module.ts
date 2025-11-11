@@ -9,8 +9,12 @@ export const databaseConfig = registerAs('database', () => ({
   database: process.env.DB_DATABASE,
 }));
 
+export const sessionConfig = registerAs('session', () => ({
+  secret: process.env.SESSION_SECRET,
+}));
+
 export const rootConfigModule = ConfigModule.forRoot({
   isGlobal: true,
   envFilePath: '.env',
-  load: [databaseConfig],
+  load: [databaseConfig, sessionConfig],
 });

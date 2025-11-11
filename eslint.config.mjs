@@ -1,4 +1,3 @@
-// @ts-check
 import eslint from '@eslint/js';
 import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
 import globals from 'globals';
@@ -29,6 +28,7 @@ export default tseslint.config([
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
+      '@typescript-eslint/no-unsafe-call': 'off',
       'padding-line-between-statements': [
         'warn',
         { blankLine: 'always', prev: 'multiline-block-like', next: 'const' },
@@ -64,6 +64,13 @@ export default tseslint.config([
         },
         { exceptAfterSingleLine: false },
       ],
+    },
+  },
+  // 테스트 코드
+  {
+    files: ['**/*.spec.ts', '**/*.test.ts'],
+    rules: {
+      '@typescript-eslint/unbound-method': 'off',
     },
   },
 ]);

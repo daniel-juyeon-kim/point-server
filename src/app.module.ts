@@ -3,6 +3,7 @@ import { ConfigModule, ConfigType } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ApiModule } from './api/api.module';
 import { databaseConfig, rootConfigModule } from './config/config.module';
+import { RepositoryModule } from './database/repository.module';
 
 @Module({
   imports: [
@@ -13,11 +14,10 @@ import { databaseConfig, rootConfigModule } from './config/config.module';
       inject: [databaseConfig.KEY],
       useFactory: (dbConfig: ConfigType<typeof databaseConfig>) => ({
         ...dbConfig,
-        entities: [__dirname + '/api/**/*.entity.{ts,js}'],
+        entities: [__dirname + '/**/*.entity.{ts,js}'],
       }),
     }),
+    RepositoryModule,
   ],
-  controllers: [],
-  providers: [],
 })
 export class AppModule {}
